@@ -5,7 +5,30 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, useMotionValue, useTransform, useSpring, useMotionValueEvent } from 'framer-motion';
 import Link from 'next/link';
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { parseEther } from 'viem';
+
+const BOT_CONTRACT_ADDRESS = '0x5a1F71A4A02698318b33617F97F55c49777B97a0' as const;
+const BOT_CONTRACT_ABI = [
+  {
+    inputs: [
+      { internalType: 'address payable', name: 'recipient', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'sendBOT',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  { stateMutability: 'payable', type: 'receive' },
+  {
+    inputs: [],
+    name: 'getBalance',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
 
 // Dynamically import the graph component
 const GraphVisualization = dynamic(() => import('../graph-component'), {
@@ -207,7 +230,7 @@ interface RiskData {
 export default function RiskAssessment() {
   const router = useRouter();
   const { address: userAddress } = useAccount();
-  const { sendTransaction, isPending: isSendingTransaction, data: transactionHash } = useSendTransaction();
+  const { writeContractAsync, isPending: isSendingTransaction, data: transactionHash } = useWriteContract();
   const { isLoading: isWaitingForReceipt, isSuccess } = useWaitForTransactionReceipt({
     hash: transactionHash,
   });
@@ -304,7 +327,7 @@ export default function RiskAssessment() {
       setError(null);
 
       // Prepare transaction data
-      const amountInWei = BigInt(Math.floor(parseFloat(amount) * 1e18));
+      const amountInWei = parseEther(amount);
 
       console.log('[v0] Confirming transaction:', {
         to: recipientAddress,
@@ -314,10 +337,12 @@ export default function RiskAssessment() {
         userAddress: userAddress,
       });
 
-      // Send the transaction
-      await sendTransaction({
-        to: recipientAddress as `0x${string}`,
-        value: amountInWei,
+      // Ask the connected wallet to call the BOT transfer contract.
+      await writeContractAsync({
+        address: BOT_CONTRACT_ADDRESS,
+        abi: BOT_CONTRACT_ABI,
+        functionName: 'sendBOT',
+        args: [recipientAddress as `0x${string}`, amountInWei],
         account: userAddress,
       });
 
