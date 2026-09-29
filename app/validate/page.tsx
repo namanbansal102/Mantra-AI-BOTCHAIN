@@ -8,16 +8,15 @@ import Link from 'next/link';
 import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { parseEther } from 'viem';
 
-const BOT_CONTRACT_ADDRESS = '0x5a1F71A4A02698318b33617F97F55c49777B97a0' as const;
+const BOT_CONTRACT_ADDRESS = '0xF3b5ff60d203C4D4C35402b30B98A9e11cB0c6e0' as const;
 const BOT_CONTRACT_ABI = [
   {
     inputs: [
       { internalType: 'address payable', name: 'recipient', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
     ],
     name: 'sendBOT',
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   { stateMutability: 'payable', type: 'receive' },
@@ -338,15 +337,16 @@ export default function RiskAssessment() {
       });
 
       // Ask the connected wallet to call the BOT transfer contract.
-      await writeContractAsync({
+      const hash = await writeContractAsync({
         address: BOT_CONTRACT_ADDRESS,
         abi: BOT_CONTRACT_ABI,
         functionName: 'sendBOT',
-        args: [recipientAddress as `0x${string}`, amountInWei],
+        args: [recipientAddress as `0x${string}`],
+        value: amountInWei,
         account: userAddress,
       });
 
-      console.log('[v0] Transaction sent, hash:', transactionHash);
+      console.log('[v0] Transaction sent, hash:', hash);
     } catch (err) {
       console.error('[v0] Transaction error:', err);
       setError(err instanceof Error ? err.message : 'Failed to confirm transaction');
